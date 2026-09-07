@@ -262,7 +262,8 @@
     aspect-ratio: 2 / 3;
     overflow:hidden;
   }
-  #video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transform:scaleX(-1);}
+  #video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+  #video.mirrored{transform:scaleX(-1);}
   #frameImg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block;}
   .cam-top{
     position:absolute; top:70px; left:0; right:0;
@@ -278,6 +279,12 @@
     position:absolute;top:18px;right:18px;z-index:6;
     background:rgba(0,0,0,.4);border:none;color:#fff;
     width:38px;height:38px;border-radius:50%;font-size:16px;cursor:pointer;
+  }
+  .cam-flip{
+    position:absolute;top:18px;left:18px;z-index:6;
+    background:rgba(0,0,0,.4);border:none;color:#fff;
+    width:38px;height:38px;border-radius:50%;font-size:17px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
   }
   .cam-hint{
     color:#fff;font-size:13px;text-align:center;line-height:1.5;
@@ -297,15 +304,20 @@
     display:none;flex-direction:column;align-items:center;justify-content:center;
   }
   #photoStage.active{display:flex;}
-  #photoCanvas{
-    width:min(92vw, calc(80vh * 2 / 3));
+  #photoPreview{
+    width:min(92vw, calc(76vh * 2 / 3));
     aspect-ratio:2/3;
     border-radius:6px;
     display:block;
+    object-fit:contain;
   }
   .photo-actions{
-    display:flex;gap:12px;margin-top:20px;
-    width:min(92vw, calc(80vh * 2 / 3));
+    display:flex;flex-direction:column;gap:10px;margin-top:18px;
+    width:min(92vw, calc(76vh * 2 / 3));
+  }
+  .photo-hint{
+    color:#cfd6dc;font-size:12px;text-align:center;line-height:1.5;
+    margin-top:10px;max-width:min(92vw, calc(76vh * 2 / 3));
   }
 
   .fade-in{animation:fadeIn .35s ease;}
@@ -326,6 +338,7 @@
     <img id="frameImg" src="" alt="">
   </div>
   <button class="cam-close" onclick="closeCamera()">✕</button>
+  <button class="cam-flip" onclick="switchCamera()" title="Girar cámara">🔄</button>
   <div class="cam-top" id="camTop"></div>
   <div class="cam-controls" id="camControls">
     <button class="btn cam-finish" onclick="takePhoto()">📸 Tomar foto</button>
@@ -334,13 +347,12 @@
 
 <div id="photoStage">
   <button class="cam-close" onclick="closeCamera()">✕</button>
-  <canvas id="photoCanvas"></canvas>
+  <img id="photoPreview" alt="Tu resultado">
   <div class="photo-actions">
-    <a id="downloadLink" style="flex:1;text-decoration:none;" download="mi_arquetipo_innovacion.png">
-      <button class="btn">Descargar foto</button>
-    </a>
-    <button class="btn ghost" style="flex:1;color:#fff;border-color:rgba(255,255,255,.35);" onclick="retakePhoto()">Tomar otra</button>
+    <button class="btn" id="saveBtn" onclick="saveOrShare()">Guardar / compartir foto</button>
+    <button class="btn ghost" style="color:#fff;border-color:rgba(255,255,255,.35);" onclick="retakePhoto()">Tomar otra</button>
   </div>
+  <p class="photo-hint">Si no se guarda automáticamente, mantén presionada la imagen y elige "Guardar imagen".</p>
 </div>
 
 <script>
@@ -448,6 +460,7 @@ let currentQ = 0;
 let score = 0;
 let resultKey = null;
 let stream = null;
+let currentFacing = 'user';
 
 const app = document.getElementById('app');
 
@@ -571,10 +584,18 @@ async function openCamera(){
   const stage = document.getElementById('cameraStage');
   resetCameraUI();
   document.getElementById('frameImg').src = FRAME_SRC[resultKey];
+  currentFacing = 'user';
   stage.classList.add('active');
+  await startStream();
+}
+
+async function startStream(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const video = document.getElementById('video');
+  video.classList.toggle('mirrored', currentFacing === 'user');
   try{
-    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
-    document.getElementById('video').srcObject = stream;
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode: currentFacing}, audio:false});
+    video.srcObject = stream;
   }catch(err){
     document.getElementById('camTop').innerHTML = `
       <div class="cam-hint" id="camError">
@@ -585,17 +606,23 @@ async function openCamera(){
   }
 }
 
+async function switchCamera(){
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  await startStream();
+}
+
+let lastPhotoBlob = null;
+
 function takePhoto(){
   const video = document.getElementById('video');
   const frameImg = document.getElementById('frameImg');
   if(!video.srcObject) return;
 
   const W = 1000, H = 1500; // matches the 2:3 frame artwork
-  const canvas = document.getElementById('photoCanvas');
+  const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // draw the mirrored camera feed, cropped to cover the 2:3 box (same as CSS object-fit:cover)
   const vw = video.videoWidth, vh = video.videoHeight;
   const boxRatio = W / H;
   const vidRatio = vw / vh;
@@ -606,17 +633,45 @@ function takePhoto(){
     sw = vw; sh = vw / boxRatio; sx = 0; sy = (vh - sh) / 2;
   }
   ctx.save();
-  ctx.translate(W, 0);
-  ctx.scale(-1, 1);
+  if(currentFacing === 'user'){
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
   ctx.restore();
 
-  // draw the real frame artwork on top (transparent window reveals the photo beneath)
   ctx.drawImage(frameImg, 0, 0, W, H);
 
-  document.getElementById('downloadLink').href = canvas.toDataURL('image/png');
-  document.getElementById('cameraStage').classList.remove('active');
-  document.getElementById('photoStage').classList.add('active');
+  canvas.toBlob(function(blob){
+    lastPhotoBlob = blob;
+    const url = URL.createObjectURL(blob);
+    document.getElementById('photoPreview').src = url;
+    document.getElementById('cameraStage').classList.remove('active');
+    document.getElementById('photoStage').classList.add('active');
+  }, 'image/png', 0.95);
+}
+
+async function saveOrShare(){
+  if(!lastPhotoBlob) return;
+  const file = new File([lastPhotoBlob], 'mi_arquetipo_innovacion.png', {type:'image/png'});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:'Mi arquetipo de innovación'});
+      return;
+    }catch(err){
+      // user cancelled or share failed silently; fall through to download fallback
+    }
+  }
+
+  const url = URL.createObjectURL(lastPhotoBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mi_arquetipo_innovacion.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
 
 function retakePhoto(){
