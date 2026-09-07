@@ -467,6 +467,7 @@ let score = 0;
 let resultKey = null;
 let stream = null;
 let currentFacing = 'user';
+let answersLog = [];
 
 const app = document.getElementById('app');
 
@@ -501,7 +502,7 @@ function renderIntro(){
 }
 
 function startQuiz(){
-  currentQ = 0; score = 0;
+  currentQ = 0; score = 0; answersLog = [];
   renderQuestion();
 }
 
@@ -515,7 +516,8 @@ function renderQuestion(){
   let opts = '';
   const letters = ['A','B','C'];
   q.options.forEach((opt,i)=>{
-    opts += `<button class="option" onclick="answer(${i+1})">
+    const safeOpt = opt.replace(/'/g, "\\'");
+    opts += `<button class="option" onclick="answer(${i+1}, '${safeOpt}')">
       <span class="letter">${letters[i]}</span><span>${opt}</span>
     </button>`;
   });
@@ -531,8 +533,9 @@ function renderQuestion(){
   `;
 }
 
-function answer(points){
+function answer(points, optionText){
   score += points;
+  answersLog.push(optionText);
   currentQ++;
   if(currentQ < QUESTIONS.length){
     renderQuestion();
@@ -542,12 +545,35 @@ function answer(points){
 }
 
 const GFORM_ACTION = "https://docs.google.com/forms/u/0/d/e/1FAIpQLScUsSWkIPQyPBCOQ6VGfoMP5css8t0mvwDB5v7NbA-ntEe3uQ/formResponse";
-const GFORM_ENTRY_PERFIL = "entry.1922209318";
+const GFORM_ENTRIES = {
+  fecha:   "entry.1922209318",
+  hora:    "entry.892348780",
+  p1:      "entry.691771118",
+  p2:      "entry.930005007",
+  p3:      "entry.1547205949",
+  p4:      "entry.248292737",
+  p5:      "entry.1289540610",
+  p6:      "entry.1712388476",
+  perfil:  "entry.1761130947"
+};
 
 function logResultAnon(perfilName){
   try{
+    const now = new Date();
+    const fecha = now.toLocaleDateString('es-CO');
+    const hora = now.toLocaleTimeString('es-CO');
+
     const body = new URLSearchParams();
-    body.append(GFORM_ENTRY_PERFIL, perfilName);
+    body.append(GFORM_ENTRIES.fecha, fecha);
+    body.append(GFORM_ENTRIES.hora, hora);
+    body.append(GFORM_ENTRIES.p1, answersLog[0] || '');
+    body.append(GFORM_ENTRIES.p2, answersLog[1] || '');
+    body.append(GFORM_ENTRIES.p3, answersLog[2] || '');
+    body.append(GFORM_ENTRIES.p4, answersLog[3] || '');
+    body.append(GFORM_ENTRIES.p5, answersLog[4] || '');
+    body.append(GFORM_ENTRIES.p6, answersLog[5] || '');
+    body.append(GFORM_ENTRIES.perfil, perfilName);
+
     fetch(GFORM_ACTION, {
       method: 'POST',
       mode: 'no-cors',
