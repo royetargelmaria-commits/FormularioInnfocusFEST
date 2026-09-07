@@ -541,11 +541,28 @@ function answer(points){
   }
 }
 
+const GFORM_ACTION = "https://docs.google.com/forms/u/0/d/e/1FAIpQLScUsSWkIPQyPBCOQ6VGfoMP5css8t0mvwDB5v7NbA-ntEe3uQ/formResponse";
+const GFORM_ENTRY_PERFIL = "entry.1922209318";
+
+function logResultAnon(perfilName){
+  try{
+    const body = new URLSearchParams();
+    body.append(GFORM_ENTRY_PERFIL, perfilName);
+    fetch(GFORM_ACTION, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: body.toString()
+    }).catch(()=>{ /* silent: never block the quiz on a network issue */ });
+  }catch(e){ /* silent */ }
+}
+
 function computeResult(){
   let key = 'explorador';
   if(score >= ARCHETYPES.innovador.range[0]) key = 'innovador';
   else if(score >= ARCHETYPES.visionario.range[0]) key = 'visionario';
   resultKey = key;
+  logResultAnon(ARCHETYPES[key].name);
   renderResult();
 }
 
