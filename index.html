@@ -292,6 +292,22 @@
     color:#fff;text-align:center;padding:0 30px;font-size:14px;line-height:1.6;
   }
 
+  #photoStage{
+    position:fixed;inset:0;background:#000;z-index:60;
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+  }
+  #photoStage.active{display:flex;}
+  #photoCanvas{
+    width:min(92vw, calc(80vh * 2 / 3));
+    aspect-ratio:2/3;
+    border-radius:6px;
+    display:block;
+  }
+  .photo-actions{
+    display:flex;gap:12px;margin-top:20px;
+    width:min(92vw, calc(80vh * 2 / 3));
+  }
+
   .fade-in{animation:fadeIn .35s ease;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 </style>
@@ -312,7 +328,18 @@
   <button class="cam-close" onclick="closeCamera()">✕</button>
   <div class="cam-top" id="camTop"></div>
   <div class="cam-controls" id="camControls">
-    <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>
+    <button class="btn cam-finish" onclick="takePhoto()">📸 Tomar foto</button>
+  </div>
+</div>
+
+<div id="photoStage">
+  <button class="cam-close" onclick="closeCamera()">✕</button>
+  <canvas id="photoCanvas"></canvas>
+  <div class="photo-actions">
+    <a id="downloadLink" style="flex:1;text-decoration:none;" download="mi_arquetipo_innovacion.png">
+      <button class="btn">Descargar foto</button>
+    </a>
+    <button class="btn ghost" style="flex:1;color:#fff;border-color:rgba(255,255,255,.35);" onclick="retakePhoto()">Tomar otra</button>
   </div>
 </div>
 
@@ -537,7 +564,7 @@ function renderResult(){
 function resetCameraUI(){
   document.getElementById('camTop').innerHTML = '';
   document.getElementById('camControls').innerHTML = `
-    <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>`;
+    <button class="btn cam-finish" onclick="takePhoto()">📸 Tomar foto</button>`;
 }
 
 async function openCamera(){
@@ -558,12 +585,55 @@ async function openCamera(){
   }
 }
 
+function takePhoto(){
+  const video = document.getElementById('video');
+  const frameImg = document.getElementById('frameImg');
+  if(!video.srcObject) return;
+
+  const W = 1000, H = 1500; // matches the 2:3 frame artwork
+  const canvas = document.getElementById('photoCanvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // draw the mirrored camera feed, cropped to cover the 2:3 box (same as CSS object-fit:cover)
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const boxRatio = W / H;
+  const vidRatio = vw / vh;
+  let sx, sy, sw, sh;
+  if (vidRatio > boxRatio) {
+    sh = vh; sw = vh * boxRatio; sx = (vw - sw) / 2; sy = 0;
+  } else {
+    sw = vw; sh = vw / boxRatio; sx = 0; sy = (vh - sh) / 2;
+  }
+  ctx.save();
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+  ctx.restore();
+
+  // draw the real frame artwork on top (transparent window reveals the photo beneath)
+  ctx.drawImage(frameImg, 0, 0, W, H);
+
+  document.getElementById('downloadLink').href = canvas.toDataURL('image/png');
+  document.getElementById('cameraStage').classList.remove('active');
+  document.getElementById('photoStage').classList.add('active');
+}
+
+function retakePhoto(){
+  document.getElementById('photoStage').classList.remove('active');
+  document.getElementById('cameraStage').classList.add('active');
+}
+
 function closeCamera(){
   if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
   document.getElementById('cameraStage').classList.remove('active');
+  document.getElementById('photoStage').classList.remove('active');
 }
 
 function resetAll(){
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  document.getElementById('cameraStage').classList.remove('active');
+  document.getElementById('photoStage').classList.remove('active');
   currentQ = 0; score = 0; resultKey = null;
   renderIntro();
 }
