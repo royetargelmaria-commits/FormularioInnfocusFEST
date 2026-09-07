@@ -310,12 +310,7 @@
     <img id="frameImg" src="" alt="">
   </div>
   <button class="cam-close" onclick="closeCamera()">✕</button>
-  <div class="cam-top" id="camTop">
-    <div class="cam-hint" id="camHint">
-      <strong>Encuádrate en el marco</strong>
-      Toma una captura de pantalla para guardar tu resultado
-    </div>
-  </div>
+  <div class="cam-top" id="camTop"></div>
   <div class="cam-controls" id="camControls">
     <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>
   </div>
@@ -540,11 +535,7 @@ function renderResult(){
 
 /* ---------------- CAMERA ---------------- */
 function resetCameraUI(){
-  document.getElementById('camTop').innerHTML = `
-    <div class="cam-hint" id="camHint">
-      <strong>Encuádrate en el marco</strong>
-      Toma una captura de pantalla para guardar tu resultado
-    </div>`;
+  document.getElementById('camTop').innerHTML = '';
   document.getElementById('camControls').innerHTML = `
     <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>`;
 }
@@ -573,10 +564,11 @@ function closeCamera(){
 }
 
 function resetAll(){
+  currentQ = 0; score = 0; resultKey = null;
   renderIntro();
 }
 
-renderIntro();
+window.addEventListener('pageshow', resetAll);
 </script>
 </body>
 </html>
