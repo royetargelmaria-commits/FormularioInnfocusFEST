@@ -233,7 +233,8 @@
   }
 
   .archetype-name{
-    font-size:34px;font-weight:800;letter-spacing:-.01em;
+    font-size:27px;font-weight:800;letter-spacing:-.01em;
+    line-height:1.2;
     margin:4px 0 14px;
     color:var(--navy);
   }
@@ -257,8 +258,13 @@
   #cameraStage.active{display:flex;}
   #video{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;transform:scaleX(-1);}
   #frameOverlay{position:absolute;inset:0;pointer-events:none;}
+  .cam-top{
+    position:absolute; top:70px; left:0; right:0;
+    display:flex; justify-content:center;
+    z-index:5; padding:0 30px;
+  }
   .cam-controls{
-    position:absolute;bottom:26px;left:0;right:0;
+    position:absolute;bottom:96px;left:0;right:0;
     display:flex;flex-direction:column;align-items:center;gap:14px;
     z-index:5; padding:0 26px;
   }
@@ -296,11 +302,13 @@
   <video id="video" autoplay playsinline muted></video>
   <svg id="frameOverlay" viewBox="0 0 400 700" preserveAspectRatio="none"></svg>
   <button class="cam-close" onclick="closeCamera()">✕</button>
-  <div class="cam-controls">
+  <div class="cam-top" id="camTop">
     <div class="cam-hint" id="camHint">
       <strong>Encuádrate en el marco</strong>
-      Toma una captura de pantalla de tu celular para guardar tu resultado
+      Toma una captura de pantalla para guardar tu resultado
     </div>
+  </div>
+  <div class="cam-controls" id="camControls">
     <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>
   </div>
 </div>
@@ -321,7 +329,7 @@ const QUESTIONS = [
   },
   {
     tema: "Tendencias del mercado",
-    prompt: "¿Qué tanto te mantienes al tanto de las tendencias del sector asegurador?",
+    prompt: "¿Qué tan actualizado estás de las tendencias del sector asegurador?",
     options: [
       "Me entero cuando alguien más las comenta.",
       "Reviso noticias o boletines del sector de vez en cuando.",
@@ -330,16 +338,16 @@ const QUESTIONS = [
   },
   {
     tema: "Aprendizaje continuo",
-    prompt: "¿Cómo describirías tu relación con el aprendizaje continuo?",
+    prompt: "¿Cada cuánto aprendes cosas nuevas en tu trabajo?",
     options: [
-      "Aprendo solo cuando es obligatorio para mi rol.",
+      "Aprendo solo cuando hay algún cambio en mi negocio.",
       "Busco nuevos conocimientos cuando tengo tiempo disponible.",
       "Dedico tiempo regular a aprender algo nuevo, sin que me lo pidan."
     ]
   },
   {
     tema: "Participación en capacitaciones",
-    prompt: "¿Qué tan seguido participas en capacitaciones o espacios de formación de la compañía?",
+    prompt: "¿Qué tan seguido participas en nuestras capacitaciones o espacios de formación?",
     options: [
       "Casi nunca me inscribo.",
       "Participo cuando el tema me llama la atención.",
@@ -350,18 +358,18 @@ const QUESTIONS = [
     tema: "Mejora de procesos",
     prompt: "Frente a un proceso que no funciona bien, ¿qué sueles hacer?",
     options: [
-      "Sigo haciéndolo igual, no es mi función cambiarlo.",
+      "Sigo haciéndolo igual y espero que los cambios se hagan solos.",
       "Comento la dificultad con mi equipo o líder.",
       "Propongo activamente una mejora o alternativa."
     ]
   },
   {
     tema: "Experimentación y pruebas piloto",
-    prompt: "¿Cuál es tu actitud frente a probar algo nuevo (herramienta, metodología, piloto)?",
+    prompt: "¿Cuál es tu actitud frente a probar nuevas herramientas o metodologías?",
     options: [
       "Prefiero esperar a que otros lo prueben primero.",
       "Me animo a probarlo si alguien más ya lo intentó.",
-      "Soy de los primeros en ofrecerme para probarlo."
+      "Soy de los primeros en probarlo."
     ]
   }
 ];
@@ -370,28 +378,31 @@ const ARCHETYPES = {
   explorador: {
     key:"explorador",
     name: "EXPLORADOR",
+    displayName: "ERES EXPLORADOR",
     range: [6,10],
     accent: "#156082",
     accent2: "#0F9ED5",
-    message: "¡Gracias por participar! Tu perfil es EXPLORADOR. La curiosidad es el primer paso de toda transformación. Sigue aprendiendo y explorando nuevas formas de generar valor.",
+    message: "La curiosidad es el primer paso de toda transformación. Sigue aprendiendo y explorando nuevas formas de generar valor. ¡Gracias por participar!",
     motif: "trail"
   },
   visionario: {
     key:"visionario",
     name: "VISIONARIO",
+    displayName: "ERES VISIONARIO",
     range: [11,14],
     accent: "#A02B93",
     accent2: "#542D8C",
-    message: "¡Gracias por participar! Tu perfil es VISIONARIO. Tu interés por impulsar mejoras y nuevas ideas te convierte en un motor de cambio dentro de la organización.",
+    message: "Tu interés por impulsar mejoras y nuevas ideas te convierte en un motor de cambio dentro de la organización. ¡Gracias por participar!",
     motif: "orbit"
   },
   innovador: {
     key:"innovador",
     name: "INNOVADOR",
+    displayName: "ERES INNOVADOR",
     range: [15,18],
     accent: "#E97132",
     accent2: "#542D8C",
-    message: "¡Gracias por participar! Tu perfil es INNOVADOR. Tu capacidad para transformar ideas en resultados genera impacto y moviliza el valor de la innovación.",
+    message: "Tu capacidad para transformar ideas en resultados genera impacto y moviliza el valor de la innovación. ¡Gracias por participar!",
     motif: "spark"
   }
 };
@@ -424,9 +435,9 @@ function renderIntro(){
       ${brandbar()}
       <main>
         <p class="eyebrow">DESCUBRE TU PERFIL</p>
-        <h1>¿Qué tan cerca estás de la innovación?</h1>
+        <h1>¿Sabes qué tan cerca estás de la innovación?</h1>
         <div class="underline"></div>
-        <p class="lead">Responde 6 preguntas rápidas (menos de 2 minutos) y descubre si eres Explorador, Visionario o Innovador. Al final, verás tu resultado en cámara para capturarlo con tu celular.</p>
+        <p class="lead">Descubre qué perfil de innovador eres: EXPLORADOR, VISIONARIO O INNOVADOR al responder este cuestionario.</p>
         <button class="btn" onclick="startQuiz()">Comenzar</button>
       </main>
       <p class="footer-brand">SEGUROS DEL ESTADO · FORMULARIO ANÓNIMO</p>
@@ -501,9 +512,8 @@ function renderResult(){
     <div class="fade-in">
       ${brandbar('TU RESULTADO')}
       <main>
-        <p class="score-tag">PUNTAJE OBTENIDO: ${score} / 18</p>
         <div class="capsule-row">${capsules}</div>
-        <div class="archetype-name">${a.name}</div>
+        <div class="archetype-name">${a.displayName}</div>
         <p class="archetype-msg">${a.message}</p>
         <button class="btn" onclick="openCamera()">Conoce tu arquetipo</button>
         <div style="height:10px;"></div>
@@ -515,20 +525,31 @@ function renderResult(){
 }
 
 /* ---------------- CAMERA ---------------- */
+function resetCameraUI(){
+  document.getElementById('camTop').innerHTML = `
+    <div class="cam-hint" id="camHint">
+      <strong>Encuádrate en el marco</strong>
+      Toma una captura de pantalla para guardar tu resultado
+    </div>`;
+  document.getElementById('camControls').innerHTML = `
+    <button class="btn cam-finish" onclick="closeCamera()">Listo, ya tomé mi captura</button>`;
+}
+
 async function openCamera(){
   const stage = document.getElementById('cameraStage');
+  resetCameraUI();
   stage.classList.add('active');
   drawFrameOverlay();
-  const camHint = document.getElementById('camHint');
   try{
     stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
     document.getElementById('video').srcObject = stream;
   }catch(err){
-    camHint.parentElement.innerHTML = `<div id="camError">
-      No pudimos acceder a la cámara desde esta vista previa.<br><br>
-      En el celular del participante, este paso abre la cámara real y aplica el marco automáticamente.<br><br>
-      <button class="btn ghost" onclick="closeCamera()" style="margin-top:14px;width:auto;padding:12px 24px;color:#fff;border-color:rgba(255,255,255,.4);">Cerrar</button>
-    </div>`;
+    document.getElementById('camTop').innerHTML = `
+      <div class="cam-hint" id="camError">
+        No pudimos acceder a tu cámara. Revisa los permisos del navegador e inténtalo de nuevo.
+      </div>`;
+    document.getElementById('camControls').innerHTML = `
+      <button class="btn cam-finish" onclick="closeCamera()">Cerrar</button>`;
   }
 }
 
